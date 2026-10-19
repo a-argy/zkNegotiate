@@ -41,6 +41,7 @@ def chat(
     seed: int = 0,
     model: str | None = None,
     max_tokens: int = 1024,
+    think: bool = False,
 ) -> str:
     """Returns the assistant's reply text. With `schema`, the reply is JSON
     constrained to that schema."""
@@ -48,7 +49,7 @@ def chat(
         "model": model or MODEL,
         "messages": messages,
         "stream": False,
-        "think": False,
+        "think": think,
         "options": {"temperature": temperature, "seed": seed, "num_predict": max_tokens, "num_ctx": 8192},
     }
     if schema is not None:

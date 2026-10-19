@@ -22,6 +22,7 @@ import json
 import random
 import time
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from zkneg import llm
@@ -82,20 +83,60 @@ def false_world(checker: Checker, claim, seed: int) -> dict | None:
     return rng.choice(pool) if pool else None
 
 
-def audit(tier: str, claim, check: str) -> dict:
+def audit(tier: str, claim, check: str, reasoning: bool = False) -> dict:
+    """The counterparty's verdict. `reasoning` turns on the model's thinking
+    mode before it answers; otherwise it answers directly."""
     prompt = AUDITOR.format(
         claim=claim.text, language=LANGUAGES[tier], catalog=render_catalog(DOMAINS[claim.domain]), now=NOW, check=check
     )
+    if reasoning:
+        return llm.chat_json([{"role": "user", "content": prompt}], VERDICT, max_tokens=8192, think=True)
     return llm.chat_json([{"role": "user", "content": prompt}], VERDICT, max_tokens=600)
+
+
+def run_claim(checker: Checker, claim, honest: dict, reasoning: bool) -> list[dict]:
+    seed = zlib.crc32(claim.id.encode())
+    docs = false_world(checker, claim, seed)
+    recs = []
+    for tier in TIERS:
+        if tier == "form" and not claim.form_ok:
+            continue
+        rec = {"id": claim.id, "category": claim.category, "text": claim.text, "reference": claim.gt,
+               "tier": tier, "model": llm.MODEL, "auditor": "reasoning" if reasoning else "fast"}
+        # adversarial condition
+        data = json.dumps({k: v["data"] for k, v in docs.items()}, indent=1)
+        prompt = ADVERSARY.format(claim=claim.text, language=LANGUAGES[tier],
+                                  catalog=render_catalog(DOMAINS[claim.domain]), data=data, now=NOW)
+        answer = llm.chat_json([{"role": "user", "content": prompt}], schema(tier, DOMAINS[claim.domain]))
+        check = claim_text(tier, answer) if "_unparseable" not in answer else ""
+        r = checker.evaluate(tier, check, docs, NOW) if check else {"ok": False, "error": "no output"}
+        passes = bool(r.get("ok") and r.get("result"))
+        adv = {"check": r.get("canonical", check), "passes": passes, "error": r.get("error")}
+        if passes:
+            v = audit(tier, claim, adv["check"], reasoning)
+            adv["verdict"] = v.get("verdict")
+            adv["reason"] = v.get("reason")
+        rec["adversarial"] = adv
+        # honest control
+        h = honest.get((claim.id, tier))
+        if h:
+            v = audit(tier, claim, h, reasoning)
+            rec["honest"] = {"check": h, "verdict": v.get("verdict"), "reason": v.get("reason")}
+        recs.append(rec)
+    return recs
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--out", default=str(OUT / "results.jsonl"))
+    ap.add_argument("--auditor", choices=["fast", "reasoning"], default="fast",
+                    help="fast: answer directly; reasoning: the model thinks before answering")
+    ap.add_argument("--workers", type=int, default=1, help="claims processed concurrently")
+    ap.add_argument("--out", default="")
     args = ap.parse_args()
+    reasoning = args.auditor == "reasoning"
+    out = Path(args.out or OUT / ("results.jsonl" if not reasoning else "results_reasoning.jsonl"))
     checker = Checker()
-    out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     honest = {}
@@ -108,39 +149,15 @@ def main() -> None:
     claims = [c for c in CLAIMS if c.gt is not None]
     claims = claims[: args.limit] if args.limit else claims
     t0 = time.time()
-    with out.open("w") as fh:
-        for i, claim in enumerate(claims):
-            seed = zlib.crc32(claim.id.encode())
-            docs = false_world(checker, claim, seed)
-            for tier in TIERS:
-                if tier == "form" and not claim.form_ok:
-                    continue
-                rec = {"id": claim.id, "category": claim.category, "text": claim.text, "reference": claim.gt,
-                       "tier": tier, "model": llm.MODEL}
-                # adversarial condition
-                data = json.dumps({k: v["data"] for k, v in docs.items()}, indent=1)
-                prompt = ADVERSARY.format(claim=claim.text, language=LANGUAGES[tier],
-                                          catalog=render_catalog(DOMAINS[claim.domain]), data=data, now=NOW)
-                answer = llm.chat_json([{"role": "user", "content": prompt}], schema(tier, DOMAINS[claim.domain]))
-                check = claim_text(tier, answer) if "_unparseable" not in answer else ""
-                r = checker.evaluate(tier, check, docs, NOW) if check else {"ok": False, "error": "no output"}
-                passes = bool(r.get("ok") and r.get("result"))
-                adv = {"check": r.get("canonical", check), "passes": passes, "error": r.get("error")}
-                if passes:
-                    v = audit(tier, claim, adv["check"])
-                    adv["verdict"] = v.get("verdict")
-                    adv["reason"] = v.get("reason")
-                rec["adversarial"] = adv
-                # honest control
-                h = honest.get((claim.id, tier))
-                if h:
-                    v = audit(tier, claim, h)
-                    rec["honest"] = {"check": h, "verdict": v.get("verdict"), "reason": v.get("reason")}
+    with ThreadPoolExecutor(max_workers=args.workers) as pool, out.open("w") as fh:
+        for i, recs in enumerate(pool.map(lambda c: run_claim(checker, c, honest, reasoning), claims)):
+            for rec in recs:
                 fh.write(json.dumps(rec) + "\n")
                 fh.flush()
+                adv = rec["adversarial"]
                 hv = rec.get("honest", {}).get("verdict", "-")
-                print(f"[{i + 1}/{len(claims)}] {claim.id} {tier:7} adversary passes={passes!s:5} "
-                      f"auditor={adv.get('verdict', '-'):6} honest={hv:6} {adv['check'][:80]!r}", flush=True)
+                print(f"[{i + 1}/{len(claims)}] {rec['id']} {rec['tier']:7} adversary passes={adv['passes']!s:5} "
+                      f"auditor={adv.get('verdict') or '-':6} honest={hv:6} {adv['check'][:80]!r}", flush=True)
     print(f"done in {time.time() - t0:.0f}s; llm stats: {llm.stats}")
 
 
