@@ -1,2 +1,0 @@
-nohup: ignoring input
-nohup: failed to run command './target/debug/gcp-script': No such file or directory

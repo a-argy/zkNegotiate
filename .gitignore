@@ -1,76 +1,17 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
-build/
-dist/
-wheels/
 *.egg-info
+.venv/
 
-# Virtual environments
-.venv
+# Rust
+target/
 
-# Secrets
+# Secrets and local state
 .env
+keys/
+runs/
 
-# Profile-guided optimization
-/tmp
-pgo-data.profdata
-
-# MacOS nuisances
 .DS_Store
-
-# Proofs
-**/proof-with-pis.bin
-**/proof-with-io.bin
-**/program.bin
-**/stdin.bin
-**/node_modules
-
-# Example fibonacci groth16 / plonk proofs
-examples/fibonacci/fibonacci-groth16.bin
-examples/fibonacci/fibonacci-plonk.bin
-
-# Benchmark
-benchmark.csv
-
-# Build Artifacts
-recursion/gnark-ffi/build
-crates/prover/build
-crates/prover/data
-crates/prover/*.tar.gz
-crates/prover/Groth16Verifier.sol
-crates/prover/pk
-crates/prover/powersOfTau28_hez_final.ptau
-crates/prover/semaphore-gnark-11
-crates/prover/trusted-setup
-crates/prover/vk
-
-# Example legacy elf
-examples/elf 
-
-# C++
-.vscode/c_cpp_properties.json
-
-# Package managers
-**/.yarn
-**/yarn.lock
-
-# IDE
-.idea
 .vscode/
-
-# Rust build artifacts
-**/target/
-**/Cargo.lock
-**/*.rlib
-**/*.so
-**/*.dylib
-**/*.dll
-**/*.exe
-**/debug/
-**/release/
-**/incremental/
-**/.cargo/
-**/build/
-
-GCP/script/target/debugtarget/
+.idea/
