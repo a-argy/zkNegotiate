@@ -1,0 +1,11 @@
+# Host workspace. The zkVM guest lives in zk/ (its own workspace, built by
+# crates/zkn/build.rs) because it compiles for SP1's target with patched crates.
+[workspace]
+members = ["crates/claimlang", "crates/zkn"]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+publish = false
