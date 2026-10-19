@@ -1,0 +1,122 @@
+{
+  "exp1": {
+    "form": {
+      "equivalent": 24,
+      "n": 24,
+      "unsafe": 6,
+      "faithful": 45,
+      "total": 58
+    },
+    "formula": {
+      "equivalent": 39,
+      "weaker": 3,
+      "incomparable": 2,
+      "stronger": 2,
+      "unnecessary_abstain": 1,
+      "n": 47,
+      "unsafe": 5,
+      "faithful": 50,
+      "total": 58
+    },
+    "script": {
+      "stronger": 3,
+      "equivalent": 38,
+      "incomparable": 2,
+      "unnecessary_abstain": 1,
+      "weaker": 1,
+      "invalid": 2,
+      "n": 47,
+      "unsafe": 3,
+      "faithful": 49,
+      "total": 58
+    }
+  },
+  "exp2": {
+    "form": {
+      "n": 24,
+      "passing": 11,
+      "fooled": 0,
+      "honest": 24,
+      "honest_accepted": 0
+    },
+    "formula": {
+      "n": 47,
+      "passing": 7,
+      "fooled": 0,
+      "honest": 39,
+      "honest_accepted": 5
+    },
+    "script": {
+      "n": 47,
+      "passing": 7,
+      "fooled": 0,
+      "honest": 38,
+      "honest_accepted": 5
+    }
+  },
+  "exp2_reasoning": {
+    "form": {
+      "n": 24,
+      "passing": 11,
+      "fooled": 0,
+      "honest": 24,
+      "honest_accepted": 22
+    },
+    "formula": {
+      "n": 47,
+      "passing": 7,
+      "fooled": 0,
+      "honest": 39,
+      "honest_accepted": 33
+    },
+    "script": {
+      "n": 47,
+      "passing": 7,
+      "fooled": 0,
+      "honest": 38,
+      "honest_accepted": 35
+    }
+  },
+  "exp2_subtle": {
+    "fast": {
+      "reject": 14,
+      "n": 14
+    },
+    "reasoning": {
+      "reject": 12,
+      "no verdict": 1,
+      "accept": 1,
+      "n": 14
+    }
+  },
+  "exp3": {
+    "strong": {
+      "talk": {
+        "n": 15,
+        "deals": 5,
+        "mean_price": 1403000.0,
+        "mean_margin": 44000.0
+      },
+      "proofs": {
+        "n": 15,
+        "deals": 5,
+        "mean_price": 1375000.0,
+        "mean_margin": 22000.0
+      }
+    },
+    "weak": {
+      "talk": {
+        "n": 15,
+        "deals": 5,
+        "mean_price": 1395000.0,
+        "mean_margin": 221000.0
+      },
+      "proofs": {
+        "n": 15,
+        "deals": 5,
+        "mean_price": 1385000.0,
+        "mean_margin": 208000.0
+      }
+    }
+  }
+}

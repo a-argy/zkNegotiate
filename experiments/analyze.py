@@ -139,6 +139,25 @@ def exp2(rows: list[dict], auditor: str = "fast") -> tuple[str, dict]:
     return "\n".join(md), data
 
 
+def exp2_subtle(rows: list[dict]) -> tuple[str, dict]:
+    if not rows:
+        return "", {}
+    md = ["## Experiment 2b: auditing experiment 1's unintentional unsafe checks", ""]
+    data = {}
+    body = []
+    for name in ["fast", "reasoning"]:
+        c = Counter(x[name]["verdict"] or "no verdict" for x in rows)
+        body.append([name, len(rows), pct(c["reject"], len(rows)), pct(c["accept"], len(rows)), c["no verdict"]])
+        data[name] = dict(c, n=len(rows))
+    md += [table(["auditor", "unsafe checks", "caught (rejected)", "missed (accepted)", "no verdict"], body), ""]
+    for x in rows:
+        if x["reasoning"]["verdict"] != "reject":
+            md.append(f"- reasoning auditor {x['reasoning']['verdict'] or 'gave no verdict'} on **{x['id']} / {x['tier']}**: "
+                      f"\"{x['text']}\" -> `{x['check'][:200]}` (reference `{x['reference']}`)")
+    md.append("")
+    return "\n".join(md), data
+
+
 def exp3(rows: list[dict]) -> tuple[str, dict]:
     if not rows:
         return "", {}
@@ -181,6 +200,7 @@ def main() -> None:
     for name, fn, path in [("exp1", exp1, "exp1/results.jsonl"),
                            ("exp2", exp2, "exp2/results.jsonl"),
                            ("exp2_reasoning", lambda r: exp2(r, "reasoning"), "exp2/results_reasoning.jsonl"),
+                           ("exp2_subtle", exp2_subtle, "exp2/results_subtle.jsonl"),
                            ("exp3", exp3, "exp3/results.jsonl")]:
         md, d = fn(load(RUNS / path))
         if md:
