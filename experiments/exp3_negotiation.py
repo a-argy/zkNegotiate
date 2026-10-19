@@ -21,6 +21,7 @@ import argparse
 import json
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from zkneg import llm
@@ -84,24 +85,25 @@ def run_one(checker: Checker, seed: int, seller_type: str, condition: str) -> di
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=15, help="negotiations per cell")
+    ap.add_argument("--workers", type=int, default=1, help="negotiations run concurrently")
     ap.add_argument("--out", default=str(OUT / "results.jsonl"))
     args = ap.parse_args()
     checker = Checker()
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    jobs = [(seed, st, cond) for seed in range(args.n) for st in ["strong", "weak"] for cond in ["talk", "proofs"]]
     t0 = time.time()
-    with out.open("w") as fh:
-        for seed in range(args.n):
-            for seller_type in ["strong", "weak"]:
-                for condition in ["talk", "proofs"]:
-                    r = run_one(checker, seed, seller_type, condition)
-                    fh.write(json.dumps(r) + "\n")
-                    fh.flush()
-                    proofs = [t["proof"] for t in r["turns"] if t.get("proof")]
-                    price = f"${r['price']:,.0f}" if r["price"] else "-"
-                    print(f"seed {seed:2} {seller_type:6} {condition:6} deal={r['deal']!s:5} price={price:>11} "
-                          f"C=${r['c']:,} W=${r['w']:,} turns={len(r['turns'])} "
-                          f"proofs={sum(p['passed'] for p in proofs)}/{len(proofs)} {r['ended']}", flush=True)
+    # Each negotiation is independent and seeded, so running them concurrently
+    # changes only wall-clock time; results are written in job order.
+    with ThreadPoolExecutor(max_workers=args.workers) as pool, out.open("w") as fh:
+        for r in pool.map(lambda j: run_one(checker, *j), jobs):
+            fh.write(json.dumps(r) + "\n")
+            fh.flush()
+            proofs = [t["proof"] for t in r["turns"] if t.get("proof")]
+            price = f"${r['price']:,.0f}" if r["price"] else "-"
+            print(f"seed {r['seed']:2} {r['seller_type']:6} {r['condition']:6} deal={r['deal']!s:5} price={price:>11} "
+                  f"C=${r['c']:,} W=${r['w']:,} turns={len(r['turns'])} "
+                  f"proofs={sum(p['passed'] for p in proofs)}/{len(proofs)} {r['ended']}", flush=True)
     print(f"done in {time.time() - t0:.0f}s; llm stats: {llm.stats}")
 
 
