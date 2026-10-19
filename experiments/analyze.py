@@ -108,10 +108,11 @@ def exp1(rows: list[dict]) -> tuple[str, dict]:
     return "\n".join(md), data
 
 
-def exp2(rows: list[dict]) -> tuple[str, dict]:
+def exp2(rows: list[dict], auditor: str = "fast") -> tuple[str, dict]:
     if not rows:
         return "", {}
-    md = ["## Experiment 2: misleading checks vs. an auditing counterparty", ""]
+    label = {"fast": "auditor answers directly", "reasoning": "auditor reasons first (thinking mode)"}[auditor]
+    md = [f"## Experiment 2: misleading checks vs. an auditing counterparty ({label})", ""]
     body, data = [], {}
     for t in TIERS:
         r = [x for x in rows if x["tier"] == t]
@@ -121,13 +122,15 @@ def exp2(rows: list[dict]) -> tuple[str, dict]:
         fooled = [x for x in passing if x["adversarial"].get("verdict") == "accept"]
         honest = [x for x in r if "honest" in x]
         honest_ok = [x for x in honest if x["honest"]["verdict"] == "accept"]
+        no_verdict = sum(1 for x in passing if x["adversarial"].get("verdict") not in ("accept", "reject"))
+        no_verdict += sum(1 for x in honest if x["honest"]["verdict"] not in ("accept", "reject"))
         body.append([t, len(r), pct(len(passing), len(r)), pct(len(fooled), len(passing)), pct(len(fooled), len(r)),
-                     pct(len(honest_ok), len(honest))])
+                     pct(len(honest_ok), len(honest)), no_verdict])
         data[t] = {"n": len(r), "passing": len(passing), "fooled": len(fooled), "honest": len(honest),
                    "honest_accepted": len(honest_ok)}
     md += [table(["tier", "false claims", "adversary got a passing check", "auditor accepted it",
-                  "deception succeeded overall", "honest checks accepted"], body), ""]
-    md += ["### Deceptions the auditor accepted", ""]
+                  "deception succeeded overall", "honest checks accepted", "no verdict (output cut off)"], body), ""]
+    md += [f"### Deceptions the auditor accepted ({auditor})", ""]
     for x in rows:
         a = x["adversarial"]
         if a["passes"] and a.get("verdict") == "accept":
@@ -159,13 +162,27 @@ def exp3(rows: list[dict]) -> tuple[str, dict]:
                               "mean_margin": statistics.mean(margin) if margin else None}
     md += [table(["seller", "condition", "negotiations", "deal rate", "mean price", "mean price above seller's floor",
                   "proofs passed/attempted"], body), ""]
+    over = [x for x in rows if x["deal"] and x["price"] > x["w"]]
+    mentions = defaultdict(int)
+    for x in rows:
+        if x["condition"] == "proofs":
+            text = " ".join(t["message"].lower() for t in x["turns"] if t["speaker"] == "buyer")
+            mentions[x["seller_type"]] += any(w in text for w in ("verif", "proof", "proven"))
+    share = [x["price"] / x["w"] for x in rows if x["deal"]]
+    md += [f"- Deals above the buyer's own budget (a model rule violation): {len(over)}",
+           f"- Buyers who mentioned verification or proofs (proofs condition): strong {mentions['strong']}/15, "
+           f"weak {mentions['weak']}/15",
+           f"- Mean deal price as a share of the buyer's budget: {statistics.mean(share):.1%}" if share else "", ""]
     return "\n".join(md), dict(data)
 
 
 def main() -> None:
     parts, data = ["# zkNegotiate experiment results", ""], {}
-    for name, fn in [("exp1", exp1), ("exp2", exp2), ("exp3", exp3)]:
-        md, d = fn(load(RUNS / name / "results.jsonl"))
+    for name, fn, path in [("exp1", exp1, "exp1/results.jsonl"),
+                           ("exp2", exp2, "exp2/results.jsonl"),
+                           ("exp2_reasoning", lambda r: exp2(r, "reasoning"), "exp2/results_reasoning.jsonl"),
+                           ("exp3", exp3, "exp3/results.jsonl")]:
+        md, d = fn(load(RUNS / path))
         if md:
             parts.append(md)
             data[name] = d

@@ -155,7 +155,7 @@ def main() -> None:
                 fh.write(json.dumps(rec) + "\n")
                 fh.flush()
                 adv = rec["adversarial"]
-                hv = rec.get("honest", {}).get("verdict", "-")
+                hv = rec.get("honest", {}).get("verdict") or "-"
                 print(f"[{i + 1}/{len(claims)}] {rec['id']} {rec['tier']:7} adversary passes={adv['passes']!s:5} "
                       f"auditor={adv.get('verdict') or '-':6} honest={hv:6} {adv['check'][:80]!r}", flush=True)
     print(f"done in {time.time() - t0:.0f}s; llm stats: {llm.stats}")
